@@ -2,9 +2,9 @@
 # ──────────────────────────────────────────────────────────────────────────
 #  SauceDemo POM – CI/CD Pipeline
 #
-#  Triggers : push / PR to main or develop
-#  Matrix   : Chromium & Firefox (headless)
-#  Artefacts: HTML report + pytest log (retained 14 days)
+#  Triggers  : push / PR → main or develop
+#  Matrix    : Chromium & Firefox (headless)
+#  Artifacts : HTML report, pytest log, screenshots (on failure), traces (on failure)
 # ──────────────────────────────────────────────────────────────────────────
 
 name: UI Tests – SauceDemo POM
@@ -21,12 +21,11 @@ on:
         required: false
         default: "all"
 
-# Cancel any in-progress run for the same branch/PR
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# FIX 1: opt into Node.js 24 now to silence deprecation warnings
+# Opt into Node.js 24 to silence deprecation warnings
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -43,8 +42,8 @@ jobs:
 
     env:
       BASE_URL:           https://www.saucedemo.com
-      USERNAME:           standard_user
-      PASSWORD:           secret_sauce
+      USERNAME:           ${{ secrets.SAUCE_USERNAME }}
+      PASSWORD:           ${{ secrets.SAUCE_PASSWORD }}
       BROWSER:            ${{ matrix.browser }}
       HEADLESS:           "true"
       SLOWMO:             "0"
@@ -54,38 +53,36 @@ jobs:
       NAVIGATION_TIMEOUT: "30000"
 
     steps:
-      # ── 1. Checkout ─────────────────────────────────────────────────
+      # ── 1. Checkout ──────────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── 2. Set up Python ────────────────────────────────────────────
+      # ── 2. Python setup ──────────────────────────────────────────────────
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
-      # ── 3. Install Python dependencies ──────────────────────────────
+      # ── 3. Install Python dependencies ───────────────────────────────────
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # ── 4. Install Playwright browsers ──────────────────────────────
-      - name: Install Playwright browsers + OS deps
-        run: |
-          python -m playwright install ${{ matrix.browser }} --with-deps
+      # ── 4. Install Playwright browser + OS deps ──────────────────────────
+      - name: Install Playwright browser
+        run: python -m playwright install ${{ matrix.browser }} --with-deps
 
-      # ── 5. Create reports directory ─────────────────────────────────
-      #  FIX 2: must exist before pytest runs so log_file can be written
-      - name: Create reports directory
-        run: mkdir -p reports
+      # ── 5. Create all report sub-directories ─────────────────────────────
+      #       Must exist before pytest so log_file, screenshots, traces can write
+      - name: Create report directories
+        run: mkdir -p reports/screenshots reports/traces
 
-      # ── 6. Run tests ────────────────────────────────────────────────
-      #  FIX 3: use --browser (pytest-playwright flag), not --browser-name
-      #         pass --html here; remove it from pytest.ini addopts to avoid
-      #         the duplicate-report / no-collection exit-code-4 clash
+      # ── 6. Run tests ─────────────────────────────────────────────────────
       - name: Run pytest (${{ matrix.browser }})
+        id: run_tests
+        continue-on-error: true        # let upload steps always run
         run: |
           pytest tests/ \
             --browser ${{ matrix.browser }} \
@@ -93,30 +90,51 @@ jobs:
             --self-contained-html \
             --tb=short \
             -v
-        continue-on-error: true   # always upload report even on test failure
-        id: run_tests
 
-      # ── 7. Upload HTML report + log ──────────────────────────────────
-      - name: Upload test report
+      # ── 7. Upload HTML report ─────────────────────────────────────────────
+      - name: Upload HTML report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-report-${{ matrix.browser }}-py${{ matrix.python-version }}
+          name: html-report-${{ matrix.browser }}-py${{ matrix.python-version }}
           path: |
             reports/report-${{ matrix.browser }}.html
             reports/pytest.log
           if-no-files-found: warn
           retention-days: 14
 
-      # ── 8. Fail the job if tests failed ─────────────────────────────
-      #  Separate step so upload always runs first (continue-on-error above)
+      # ── 8. Upload screenshots (only when tests fail) ──────────────────────
+      - name: Upload failure screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ matrix.browser }}-py${{ matrix.python-version }}
+          path: reports/screenshots/
+          if-no-files-found: ignore    # no screenshots = all tests passed
+          retention-days: 14
+
+      # ── 9. Upload Playwright traces (only when tests fail) ────────────────
+      - name: Upload failure traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: traces-${{ matrix.browser }}-py${{ matrix.python-version }}
+          path: reports/traces/
+          if-no-files-found: ignore    # no traces = all tests passed
+          retention-days: 14
+
+      # ── 10. Fail the job after all uploads are done ───────────────────────
       - name: Assert tests passed
         if: steps.run_tests.outcome == 'failure'
         run: |
-          echo "Tests failed – see uploaded report for details"
+          echo "❌ Tests failed – download the artifacts above for details."
+          echo "   • HTML report  : html-report-${{ matrix.browser }}"
+          echo "   • Screenshots  : screenshots-${{ matrix.browser }}"
+          echo "   • Traces       : traces-${{ matrix.browser }}"
+          echo "   View a trace   : npx playwright show-trace <trace.zip>"
           exit 1
 
-  # ── Aggregate status check ──────────────────────────────────────────
+  # ── Aggregate gate ────────────────────────────────────────────────────────
   all-browsers-passed:
     name: All browsers passed
     runs-on: ubuntu-latest
@@ -129,4 +147,4 @@ jobs:
             echo "One or more browser jobs failed!"
             exit 1
           fi
-          echo "All browser jobs passed ✓"
+          echo "✅ All browser jobs passed"
