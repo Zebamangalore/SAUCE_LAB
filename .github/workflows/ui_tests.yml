@@ -14,7 +14,6 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
-  # Allow manual runs from the Actions tab
   workflow_dispatch:
     inputs:
       browser:
@@ -27,29 +26,32 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# FIX 1: opt into Node.js 24 now to silence deprecation warnings
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   test:
     name: ${{ matrix.browser }} – Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
 
     strategy:
-      fail-fast: false          # let both browsers finish even if one fails
+      fail-fast: false
       matrix:
         browser: [chromium, firefox]
         python-version: ["3.12"]
 
-    # ── Environment variables (override .env defaults in CI) ───────────
     env:
       BASE_URL:           https://www.saucedemo.com
       USERNAME:           standard_user
       PASSWORD:           secret_sauce
       BROWSER:            ${{ matrix.browser }}
       HEADLESS:           "true"
+      SLOWMO:             "0"
       VIEWPORT_WIDTH:     "1280"
       VIEWPORT_HEIGHT:    "720"
       DEFAULT_TIMEOUT:    "15000"
       NAVIGATION_TIMEOUT: "30000"
-      HTML_REPORT:        reports/report.html
 
     steps:
       # ── 1. Checkout ─────────────────────────────────────────────────
@@ -75,30 +77,44 @@ jobs:
           python -m playwright install ${{ matrix.browser }} --with-deps
 
       # ── 5. Create reports directory ─────────────────────────────────
+      #  FIX 2: must exist before pytest runs so log_file can be written
       - name: Create reports directory
         run: mkdir -p reports
 
       # ── 6. Run tests ────────────────────────────────────────────────
-      - name: Run pytest (browser = ${{ matrix.browser }})
+      #  FIX 3: use --browser (pytest-playwright flag), not --browser-name
+      #         pass --html here; remove it from pytest.ini addopts to avoid
+      #         the duplicate-report / no-collection exit-code-4 clash
+      - name: Run pytest (${{ matrix.browser }})
         run: |
-          pytest \
-            --browser-name=${{ matrix.browser }} \
+          pytest tests/ \
+            --browser ${{ matrix.browser }} \
             --html=reports/report-${{ matrix.browser }}.html \
             --self-contained-html \
+            --tb=short \
             -v
-        # Don't fail the upload step if tests fail
-        continue-on-error: false
+        continue-on-error: true   # always upload report even on test failure
+        id: run_tests
 
-      # ── 7. Upload HTML report ────────────────────────────────────────
-      - name: Upload HTML test report
-        if: always()   # upload even on test failure
+      # ── 7. Upload HTML report + log ──────────────────────────────────
+      - name: Upload test report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-report-${{ matrix.browser }}-py${{ matrix.python-version }}
           path: |
             reports/report-${{ matrix.browser }}.html
             reports/pytest.log
+          if-no-files-found: warn
           retention-days: 14
+
+      # ── 8. Fail the job if tests failed ─────────────────────────────
+      #  Separate step so upload always runs first (continue-on-error above)
+      - name: Assert tests passed
+        if: steps.run_tests.outcome == 'failure'
+        run: |
+          echo "Tests failed – see uploaded report for details"
+          exit 1
 
   # ── Aggregate status check ──────────────────────────────────────────
   all-browsers-passed:
