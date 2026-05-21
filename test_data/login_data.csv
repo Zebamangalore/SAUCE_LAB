@@ -1,0 +1,6 @@
+test_id,test_name,username,password,expected_result,,
+TC_001,Valid Login,Admin,admin123,Dashboard,,
+TC_002,Wrong Password,Admin,wrongpass,Invalid credentials,,
+TC_003,Wrong Username,wronguser,admin123,Invalid credentials,,
+TC_004,Empty Username,,admin123,Required,,
+TC_005,Empty Password,Admin,,Required,,

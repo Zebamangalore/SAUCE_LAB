@@ -1,0 +1,6 @@
+[
+  {"test_id": "TC_001", "test_name": "Valid Login",    "username": "Admin",     "password": "admin123",  "expected_result": "Dashboard"},
+  {"test_id": "TC_002", "test_name": "Wrong Password", "username": "Admin",     "password": "wrongpass", "expected_result": "Invalid credentials"},
+  {"test_id": "TC_003", "test_name": "Missing Key Test","username": "Admin"},
+  {"test_id": "TC_004", "test_name": "Empty Username",  "username": "",          "password": "admin123",  "expected_result": "Required"}
+]

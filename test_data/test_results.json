@@ -1,0 +1,86 @@
+[
+  {
+    "id": "TC_001",
+    "name": "Valid Login with correct credentials",
+    "status": "PASS",
+    "duration_ms": 1200,
+    "error_message": null
+  },
+  {
+    "id": "TC_002",
+    "name": "Login with wrong password",
+    "status": "FAIL",
+    "duration_ms": 3500,
+    "error_message": "Expected 'Invalid credentials' but got 'Dashboard'"
+  },
+  {
+    "id": "TC_003",
+    "name": "Login with empty username",
+    "status": "PASS",
+    "duration_ms": 980,
+    "error_message": null
+  },
+  {
+    "id": "TC_004",
+    "name": "Login with empty password",
+    "status": "FAIL",
+    "duration_ms": 4200,
+    "error_message": "Required message not displayed under password field"
+  },
+  {
+    "id": "TC_005",
+    "name": "Valid logout after login",
+    "status": "PASS",
+    "duration_ms": 1540,
+    "error_message": null
+  },
+  {
+    "id": "TC_006",
+    "name": "Dashboard heading visible after login",
+    "status": "FAIL",
+    "duration_ms": 30000,
+    "error_message": "TimeoutError: Dashboard heading not visible within 30000ms"
+  },
+  {
+    "id": "TC_007",
+    "name": "Login with wrong username",
+    "status": "PASS",
+    "duration_ms": 870,
+    "error_message": null
+  },
+  {
+    "id": "TC_008",
+    "name": "Empty form submission shows Required on both fields",
+    "status": "FAIL",
+    "duration_ms": 5100,
+    "error_message": "KeyError: 'password' field error message not found"
+  },
+  {
+    "id": "TC_009",
+    "name": "Base URL loads login page correctly",
+    "status": "PASS",
+    "duration_ms": 760,
+    "error_message": null
+  },
+  {
+    "id": "TC_010",
+    "name": "Dashboard not accessible without login",
+    "status": "FAIL",
+    "duration_ms": 8900,
+    "error_message": "AssertionError: Expected redirect to login page but stayed on dashboard"
+  },
+  {
+    "id": "TC_011",
+    "name": "Remember me checkbox retains session",
+    "status": "PASS",
+    "duration_ms": 2300,
+    "error_message": null
+  },
+  {
+    "id": "TC_012",
+    "name": "Login page title is correct",
+    "status": "PASS",
+    "duration_ms": 640,
+    "error_message": null
+  }
+]

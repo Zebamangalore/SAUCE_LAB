@@ -1,0 +1,6 @@
+id,name,error_message,duration_ms
+TC_002,Login with wrong password,Expected 'Invalid credentials' but got 'Dashboard',3500
+TC_004,Login with empty password,Required message not displayed under password field,4200
+TC_006,Dashboard heading visible after login,TimeoutError: Dashboard heading not visible within 30000ms,30000
+TC_008,Empty form submission shows Required on both fields,KeyError: 'password' field error message not found,5100
+TC_010,Dashboard not accessible without login,AssertionError: Expected redirect to login page but stayed on dashboard,8900
